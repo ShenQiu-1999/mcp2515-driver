@@ -16,6 +16,7 @@ uint8_t spi_can_init(void)
         return 2; // 设置波特率失败
     // spi_can.enable_interrupt(&spi_can, RX_BUF0_FULL_INT); // 使能中断，如果用到开启
     // spi_can.enable_interrupt(&spi_can, RX_BUF0_FULL_INT);
+    return 0;
 }
 
 mcp2515_can_msg_t spi_can_rxmsg;
