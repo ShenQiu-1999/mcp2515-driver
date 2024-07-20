@@ -76,8 +76,8 @@ uint8_t mcp2515_init(bsp_mcp2515_t* handle,
     handle->get_interrupt_flag = get_interrupt_flag;
     handle->clear_interrupt_flag = clear_interrupt_flag;
 
-    handle->spi_interface.spi_cs(1);
     handle->spi_interface.spi_init();
+    handle->spi_interface.spi_cs(1);
     
     if(mcp2515_reset(handle))
     {
