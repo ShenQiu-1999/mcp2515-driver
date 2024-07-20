@@ -5,7 +5,7 @@
 
 ```c
 #include "bsp_mcp2515.h"
-#inlcude "spi.h"
+#include "spi.h"
 
 bsp_mcp2515_t spi_can;
 mcp2515_can_msg_t spi_can_rxmsg;
