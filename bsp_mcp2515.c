@@ -695,10 +695,10 @@ uint8_t mcp2515_transmit(bsp_mcp2515_t* handle, mcp2515_can_msg_t* mcp2515_can_m
         /* Request to transmit */
         mcp2515_request_to_send(handle, MCP2515_RTS_TX0);
 
-        uint8_t ctrl = mcp2515_read_byte(handle, MCP2515_TXB0CTRL);
-        if((ctrl & 0x70) != 0)
-            return 2;
-        else
+        // uint8_t ctrl = mcp2515_read_byte(handle, MCP2515_TXB0CTRL);
+        // if((ctrl & 0x70) != 0)
+        //     return 2;
+        // else
             return 0;
     }
     else if (status.TXB1REQ != 1)
@@ -711,10 +711,10 @@ uint8_t mcp2515_transmit(bsp_mcp2515_t* handle, mcp2515_can_msg_t* mcp2515_can_m
 
         mcp2515_request_to_send(handle, MCP2515_RTS_TX1);
 
-        uint8_t ctrl = mcp2515_read_byte(handle, MCP2515_TXB1CTRL);
-        if((ctrl & 0x70) != 0)
-            return 2;
-        else
+        // uint8_t ctrl = mcp2515_read_byte(handle, MCP2515_TXB1CTRL);
+        // if((ctrl & 0x70) != 0)
+        //     return 2;
+        // else
             return 0;
     }
     else if (status.TXB2REQ != 1)
@@ -727,10 +727,10 @@ uint8_t mcp2515_transmit(bsp_mcp2515_t* handle, mcp2515_can_msg_t* mcp2515_can_m
 
         mcp2515_request_to_send(handle, MCP2515_RTS_TX2);
 
-        uint8_t ctrl = mcp2515_read_byte(handle, MCP2515_TXB2CTRL);
-        if((ctrl & 0x70) != 0)
-            return 2;
-        else
+        // uint8_t ctrl = mcp2515_read_byte(handle, MCP2515_TXB2CTRL);
+        // if((ctrl & 0x70) != 0)
+        //     return 2;
+        // else
             return 0;
     }
 
