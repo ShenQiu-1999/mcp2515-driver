@@ -242,19 +242,19 @@ struct bsp_mcp2515_tag
 
     /* public: */
     uint8_t (*reset)(bsp_mcp2515_t* handle);
-    uint8_t (*set_baudrate)(bsp_mcp2515_t* handle, uint32_t baudrate); // baudrate: macro definition
+    uint8_t (*set_baudrate)(bsp_mcp2515_t* handle, uint32_t baudrate); // baudrate: macro definition MCP2515_CAN_250K/MCP2515_CAN_500K
     uint8_t (*transmit)(bsp_mcp2515_t* handle, mcp2515_can_msg_t* mcp2515_can_msg);
     uint8_t (*receive)(bsp_mcp2515_t* handle, mcp2515_can_msg_t* mcp2515_can_msg);
     uint8_t (*receive_isr)(bsp_mcp2515_t* handle, uint8_t rxbuf, mcp2515_can_msg_t* mcp2515_can_msg);
     uint8_t (*is_bus_off)(bsp_mcp2515_t* handle);
     uint8_t (*is_rx_error)(bsp_mcp2515_t* handle);
     uint8_t (*is_tx_error)(bsp_mcp2515_t* handle);
-    uint8_t (*set_filter_mask)(bsp_mcp2515_t* handle, uint8_t mask, uint8_t ide, uint32_t data);
+    uint8_t (*set_filter_mask)(bsp_mcp2515_t* handle, uint8_t mask, uint8_t ide, uint32_t data); // ide: macro definition STANDARD_FRAME/EXTENDED_FRAME
     uint8_t (*set_filter)(bsp_mcp2515_t* handle, uint8_t rxf, uint8_t ide, uint32_t data);
     uint8_t (*enter_sleep_mode)(bsp_mcp2515_t* handle); // datasheet P59
     uint8_t (*set_loopback_mode)(bsp_mcp2515_t* handle);
     uint8_t (*set_listenonly_mode)(bsp_mcp2515_t* handle);
-    void (*enable_interrupt)(bsp_mcp2515_t* handle, uint8_t interrupt); // interrupt: enum definition
+    void (*enable_interrupt)(bsp_mcp2515_t* handle, uint8_t interrupt); // interrupt: enum definition mcp2515_interrupt_t
     void (*disable_interrupt)(bsp_mcp2515_t* handle, uint8_t interrupt);
     uint8_t (*get_interrupt_flag)(bsp_mcp2515_t* handle, uint8_t interrupt);
     void (*clear_interrupt_flag)(bsp_mcp2515_t* handle, uint8_t interrupt);
@@ -262,7 +262,7 @@ struct bsp_mcp2515_tag
 
 
 uint8_t mcp2515_init(bsp_mcp2515_t* handle,
-                     uint32_t osc_freq,         // macro definition
+                     uint32_t osc_freq,         // macro definition MCP2515_OSC_8M/MCP2515_OSC_16M/MCP2515_OSC_20M
                      void (*spi_init)(void),
                      void (*spi_cs)(uint8_t),
                      uint8_t (*spi_read_write_byte)(uint8_t));

@@ -333,9 +333,11 @@ uint8_t mcp2515_reset(bsp_mcp2515_t* handle)
     do {
         /* confirm mode configuration */
         if((mcp2515_read_byte(handle, MCP2515_CANSTAT) & 0xE0) == 0x80)
-            return 1;
+            break;
         
     } while(loop--);
+
+    if(loop == 0) return 1; // 未进入初始化模式, 无法修改mask&filter寄存器, 返回失败
 
     mcp2515_bit_modify(handle, MCP2515_CANCTRL, 0x04, 0x00); // disable clkout pin
 
@@ -610,7 +612,7 @@ uint8_t mcp2515_receive(bsp_mcp2515_t* handle, mcp2515_can_msg_t* mcp2515_can_ms
  *          volatile bool interrupt_flag = false; 
  *          void irqHandler() {interrupt_flag = true;}
  *          if (interrupt_flag) {
- *              interrupt_flag = false; 
+ *              interrupt_flag = false;
  *              if (mcp2515.mcp2515_receive_isr(&mcp2515, MCP2515_RXB0, &rx_can_msg)) {
                     // rx_can_msg contains received from RXB0 message
                 }
@@ -787,9 +789,9 @@ uint8_t mcp2515_is_tx_error(bsp_mcp2515_t* handle)
     mask & filter usage example:
     mcp2515.set_filter_mask(&mcp2515, MCP2515_MASK0, STANDARD_FRAME, 0x7FF);
     mcp2515.set_filter_mask(&mcp2515, MCP2515_MASK1, STANDARD_FRAME, 0x7FF);
-    mcp2515.set_filter(&mcp2515, MCP2515_RXF0...MCP2515_RXF5, STANDARD_FRAME, 0x1c1); // only receive id=0x1c1 
+    mcp2515.set_filter(&mcp2515, MCP2515_RXF0...MCP2515_RXF5, STANDARD_FRAME, 0x1c1); // only receive STANDARD_FRAME id=0x1c1 
     mcp2515.set_filter(&mcp2515, MCP2515_RXF0, STANDARD_FRAME, 0x1c1);
-    mcp2515.set_filter(&mcp2515, MCP2515_RXF1...MCP2515_RXF5, STANDARD_FRAME, 0x1c2); // only receive id=0x1c1 & 0x1c2
+    mcp2515.set_filter(&mcp2515, MCP2515_RXF1...MCP2515_RXF5, STANDARD_FRAME, 0x1c2); // only receive STANDARD_FRAME id=0x1c1 & 0x1c2
     如果需要接收指定区间的id则根据需要更改mask
 */
 /**
