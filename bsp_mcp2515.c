@@ -5,7 +5,6 @@ static uint8_t mcp2515_read_byte(bsp_mcp2515_t* handle, uint8_t address);
 static void mcp2515_read_bytes(bsp_mcp2515_t* handle, uint8_t start_address, uint8_t* data, uint8_t length);
 static void mcp2515_write_byte(bsp_mcp2515_t* handle, uint8_t address, uint8_t data);
 static void mcp2515_write_bytes(bsp_mcp2515_t* handle, uint8_t start_address, uint8_t* data, uint8_t length);
-static void calculate_baudrate(bsp_mcp2515_t* handle, uint32_t baudrate, uint32_t osc_freq);
 static void mcp2515_bit_modify(bsp_mcp2515_t* handle, uint8_t address, uint8_t mask, uint8_t data);
 static uint8_t mcp2515_read_status(bsp_mcp2515_t* handle);
 static uint8_t mcp2515_get_rx_status(bsp_mcp2515_t* handle);
@@ -13,22 +12,24 @@ static void mcp2515_request_to_send(bsp_mcp2515_t* handle, uint8_t instruction);
 static uint32_t convert_reg_to_exid(uint8_t RXBnEID8, uint8_t RXBnEID0, uint8_t RXBnSIDH, uint8_t RXBnSIDL);
 static uint32_t convert_reg_to_stid(uint8_t RXBnSIDH, uint8_t RXBnSIDL);
 static void convert_id_to_reg(uint32_t id, uint8_t id_typ, id_reg_t *id_reg);
+static uint8_t mcp2515_set_mode(bsp_mcp2515_t* handle, uint8_t mode);
 static uint8_t mcp2515_set_config_mode(bsp_mcp2515_t* handle);
 static uint8_t mcp2515_set_normal_mode(bsp_mcp2515_t* handle);
 static uint8_t mcp2515_set_sleep_mode(bsp_mcp2515_t* handle);
 static uint8_t mcp2515_set_loopback_mode(bsp_mcp2515_t* handle);
 static uint8_t mcp2515_set_listenonly_mode(bsp_mcp2515_t* handle);
-static uint8_t mcp2515_set_mode(bsp_mcp2515_t* handle, uint8_t mode);
 
 static uint8_t mcp2515_reset(bsp_mcp2515_t* handle);
 static uint8_t mcp2515_set_baudrate(bsp_mcp2515_t* handle, uint32_t baudrate);
 static uint8_t mcp2515_enter_sleep_mode(bsp_mcp2515_t* handle);
+static uint8_t mcp2515_transmit(bsp_mcp2515_t* handle, mcp2515_can_msg_t* mcp2515_can_msg);
 static uint8_t mcp2515_receive(bsp_mcp2515_t* handle, mcp2515_can_msg_t* mcp2515_can_msg);
 static uint8_t mcp2515_receive_isr(bsp_mcp2515_t* handle, uint8_t rxbuf, mcp2515_can_msg_t* mcp2515_can_msg);
-static uint8_t mcp2515_transmit(bsp_mcp2515_t* handle, mcp2515_can_msg_t* mcp2515_can_msg);
 static uint8_t mcp2515_is_bus_off(bsp_mcp2515_t* handle);
 static uint8_t mcp2515_is_rx_error(bsp_mcp2515_t* handle);
 static uint8_t mcp2515_is_tx_error(bsp_mcp2515_t* handle);
+static uint8_t mcp2515_get_rx_error_count(bsp_mcp2515_t* handle);
+static uint8_t mcp2515_get_tx_error_count(bsp_mcp2515_t* handle);
 static uint8_t set_filter_mask(bsp_mcp2515_t* handle, uint8_t mask, uint8_t ide, uint32_t data);
 static uint8_t set_filter(bsp_mcp2515_t* handle, uint8_t rxf, uint8_t ide, uint32_t data);
 static void enable_interrupt(bsp_mcp2515_t* handle, uint8_t interrupt);
@@ -66,6 +67,8 @@ uint8_t mcp2515_init(bsp_mcp2515_t* handle,
     handle->is_bus_off = mcp2515_is_bus_off;
     handle->is_rx_error = mcp2515_is_rx_error;
     handle->is_tx_error = mcp2515_is_tx_error;
+    handle->get_rx_error_count = mcp2515_get_rx_error_count;
+    handle->get_tx_error_count = mcp2515_get_tx_error_count;
     handle->set_filter_mask = set_filter_mask;
     handle->set_filter = set_filter;
     handle->enter_sleep_mode = mcp2515_enter_sleep_mode;
@@ -121,53 +124,6 @@ static void mcp2515_write_bytes(bsp_mcp2515_t* handle, uint8_t start_address, ui
     {
         mcp2515_write_byte(handle, start_address++, data[i]);
     }
-}
-
-static int abs(int x) {
-    return (x < 0) ? -x : x;
-}
-
-/*
- *  PropSeg + PS1 ≥ PS2
- *  PropSeg + PS1 ≥ TDELAY (typically, the TDELAY is 1-2 TQs)
- *  PS2 ≥ SJW
- *  Minimum valid setting for PS2 is 2 TQs.
- */
-static void calculate_baudrate(bsp_mcp2515_t* handle, uint32_t baudrate, uint32_t osc_freq)
-{
-    uint8_t brp, propSeg, ps1, ps2;
-    float tq;
-    uint32_t bestError = 1000000000;
-    uint32_t error;
-    uint8_t bestBrp = 0, bestPropSeg = 0, bestPs1 = 0, bestPs2 = 0;
-    
-    for (brp = 0; brp < 64; brp++) {
-        tq = (float)(2 * (brp + 1)) / osc_freq;
-        for (propSeg = 1; propSeg <= 8; propSeg++) {
-            for (ps1 = 1; ps1 <= 8; ps1++) {
-                for (ps2 = 2; ps2 <= 8; ps2++) {
-                    // 确保满足约束条件
-                    if ((propSeg + ps1 >= ps2) && (propSeg + ps1 >= 2) && (ps2 >= 1)) { // 假设SJW = 1
-                        uint32_t totalTq = 1 + propSeg + ps1 + ps2;
-                        uint32_t baud = (uint32_t)(1.0 / (tq * totalTq));
-                        error = abs(baudrate - baud);
-                        if (error < bestError) {
-                            bestError = error;
-                            bestBrp = brp;
-                            bestPropSeg = propSeg;
-                            bestPs1 = ps1;
-                            bestPs2 = ps2;
-                        }
-                    }
-                }
-            }
-        }
-    }
-    mcp2515_write_byte(handle, MCP2515_CNF1, (bestBrp & 0x3F));
-    mcp2515_write_byte(handle, MCP2515_CNF2, (0xC0 | ((bestPs1 - 1) & 0x07) << 3 | ((bestPropSeg - 1) & 0x07)));
-    mcp2515_write_byte(handle, MCP2515_CNF3, (bestPs2 - 1) & 0x07);
-
-    // printf("bestBrp: %d, bestPropSeg: %d, bestPs1: %d, bestPs2: %d", bestBrp ,bestPropSeg, bestPs1, bestPs2);
 }
 
 /**
@@ -274,6 +230,23 @@ static void convert_id_to_reg(uint32_t id, uint8_t id_typ, id_reg_t *id_reg)
     }
 }
 
+static uint8_t mcp2515_set_mode(bsp_mcp2515_t* handle, uint8_t mode)
+{
+    /* configure CANCTRL Register */
+    mcp2515_bit_modify(handle, MCP2515_CANCTRL, 0xE0, mode);
+    
+    uint32_t loop = 0xFFFFF;
+    
+    do {
+        /* confirm mode configuration */
+        if((mcp2515_read_byte(handle, MCP2515_CANSTAT) & 0xE0) == mode)
+            return 0;
+        
+    } while(loop--);
+      
+    return 1;
+}
+
 /* change mode as configuration mode */
 static uint8_t mcp2515_set_config_mode(bsp_mcp2515_t* handle)
 {
@@ -299,23 +272,6 @@ uint8_t mcp2515_set_loopback_mode(bsp_mcp2515_t* handle)
 uint8_t mcp2515_set_listenonly_mode(bsp_mcp2515_t* handle)
 {
     return mcp2515_set_mode(handle, 0x60);
-}
-
-static uint8_t mcp2515_set_mode(bsp_mcp2515_t* handle, uint8_t mode)
-{
-    /* configure CANCTRL Register */
-    mcp2515_bit_modify(handle, MCP2515_CANCTRL, 0xE0, mode);
-    
-    uint32_t loop = 0xFFFFF;
-    
-    do {
-        /* confirm mode configuration */
-        if((mcp2515_read_byte(handle, MCP2515_CANSTAT) & 0xE0) == mode)
-            return 0;
-        
-    } while(loop--);
-      
-    return 1;
 }
 
 /* MCP2515 Reset */
@@ -405,6 +361,53 @@ uint8_t mcp2515_set_clkout(bsp_mcp2515_t* handle, uint8_t divisor)
     /* Turn off CLKOUT for SOF */
     // mcp2515_bit_modify(handle, MCP2515_CNF3, 0x80, 0x00);
     return 0;
+}
+
+static int abs(int x) {
+    return (x < 0) ? -x : x;
+}
+
+/*
+ *  PropSeg + PS1 ≥ PS2
+ *  PropSeg + PS1 ≥ TDELAY (typically, the TDELAY is 1-2 TQs)
+ *  PS2 ≥ SJW
+ *  Minimum valid setting for PS2 is 2 TQs.
+ */
+static void calculate_baudrate(bsp_mcp2515_t* handle, uint32_t baudrate, uint32_t osc_freq)
+{
+    uint8_t brp, propSeg, ps1, ps2;
+    float tq;
+    uint32_t bestError = 1000000000;
+    uint32_t error;
+    uint8_t bestBrp = 0, bestPropSeg = 0, bestPs1 = 0, bestPs2 = 0;
+    
+    for (brp = 0; brp < 64; brp++) {
+        tq = (float)(2 * (brp + 1)) / osc_freq;
+        for (propSeg = 1; propSeg <= 8; propSeg++) {
+            for (ps1 = 1; ps1 <= 8; ps1++) {
+                for (ps2 = 2; ps2 <= 8; ps2++) {
+                    // 确保满足约束条件
+                    if ((propSeg + ps1 >= ps2) && (propSeg + ps1 >= 2) && (ps2 >= 1)) { // 假设SJW = 1
+                        uint32_t totalTq = 1 + propSeg + ps1 + ps2;
+                        uint32_t baud = (uint32_t)(1.0 / (tq * totalTq));
+                        error = abs(baudrate - baud);
+                        if (error < bestError) {
+                            bestError = error;
+                            bestBrp = brp;
+                            bestPropSeg = propSeg;
+                            bestPs1 = ps1;
+                            bestPs2 = ps2;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    mcp2515_write_byte(handle, MCP2515_CNF1, (bestBrp & 0x3F));
+    mcp2515_write_byte(handle, MCP2515_CNF2, (0xC0 | ((bestPs1 - 1) & 0x07) << 3 | ((bestPropSeg - 1) & 0x07)));
+    mcp2515_write_byte(handle, MCP2515_CNF3, (bestPs2 - 1) & 0x07);
+
+    // printf("bestBrp: %d, bestPropSeg: %d, bestPs1: %d, bestPs2: %d", bestBrp ,bestPropSeg, bestPs1, bestPs2);
 }
 
 /**
@@ -557,6 +560,74 @@ uint8_t mcp2515_enter_sleep_mode(bsp_mcp2515_t* handle)
     return mcp2515_set_sleep_mode(handle); /* 开启唤醒中断, MCU也可进入休眠模式, 接收到消息也可以(外部中断)唤醒MCU */
 }
 
+/**
+ * @brief	Transmit CAN message
+ * @param	
+ * @retval	0: transmit success; 1: all txbuf busy; 2: transmit failed
+ */
+uint8_t mcp2515_transmit(bsp_mcp2515_t* handle, mcp2515_can_msg_t* mcp2515_can_msg)
+{
+    ctrl_status_t status;
+    id_reg_t id_reg;
+
+    status.ctrl_status = mcp2515_read_status(handle);
+
+    /* Finding empty buffer */
+    if (status.TXB0REQ != 1)
+    {
+        /* convert CAN ID for register */
+        convert_id_to_reg(mcp2515_can_msg->id, mcp2515_can_msg->id_type, &id_reg);
+
+        /* Load data to Tx Buffer */
+        mcp2515_write_bytes(handle, MCP2515_TXB0SIDH, &id_reg.SIDH, 4);
+        mcp2515_write_byte(handle, MCP2515_TXB0DLC, mcp2515_can_msg->dlc & 0x0F); // default: RTR=0,Transmitted message will be a data frame
+        mcp2515_write_bytes(handle, MCP2515_TXB0D0, mcp2515_can_msg->data, 8);
+
+        /* Request to transmit */
+        mcp2515_request_to_send(handle, MCP2515_RTS_TX0);
+
+        // uint8_t ctrl = mcp2515_read_byte(handle, MCP2515_TXB0CTRL);
+        // if((ctrl & 0x70) != 0)
+        //     return 2;
+        // else
+            return 0;
+    }
+    else if (status.TXB1REQ != 1)
+    {
+        convert_id_to_reg(mcp2515_can_msg->id, mcp2515_can_msg->id_type, &id_reg);
+
+        mcp2515_write_bytes(handle, MCP2515_TXB1SIDH, &id_reg.SIDH, 4);
+        mcp2515_write_byte(handle, MCP2515_TXB1DLC, mcp2515_can_msg->dlc & 0x0F);
+        mcp2515_write_bytes(handle, MCP2515_TXB1D0, mcp2515_can_msg->data, 8);
+
+        mcp2515_request_to_send(handle, MCP2515_RTS_TX1);
+
+        // uint8_t ctrl = mcp2515_read_byte(handle, MCP2515_TXB1CTRL);
+        // if((ctrl & 0x70) != 0)
+        //     return 2;
+        // else
+            return 0;
+    }
+    else if (status.TXB2REQ != 1)
+    {
+        convert_id_to_reg(mcp2515_can_msg->id, mcp2515_can_msg->id_type, &id_reg);
+
+        mcp2515_write_bytes(handle, MCP2515_TXB2SIDH, &id_reg.SIDH, 4);
+        mcp2515_write_byte(handle, MCP2515_TXB2DLC, mcp2515_can_msg->dlc & 0x0F);
+        mcp2515_write_bytes(handle, MCP2515_TXB2D0, mcp2515_can_msg->data, 8);
+
+        mcp2515_request_to_send(handle, MCP2515_RTS_TX2);
+
+        // uint8_t ctrl = mcp2515_read_byte(handle, MCP2515_TXB2CTRL);
+        // if((ctrl & 0x70) != 0)
+        //     return 2;
+        // else
+            return 0;
+    }
+
+    return 1;
+}
+
 /* You can choose one of two method to receive: interrupt-based and polling */
 
 /**
@@ -669,74 +740,6 @@ uint8_t mcp2515_receive_isr(bsp_mcp2515_t* handle, uint8_t rxbuf, mcp2515_can_ms
     return 0;
 }
 
-/**
- * @brief	Transmit CAN message
- * @param	
- * @retval	0: transmit success; 1: all txbuf busy; 2: transmit failed
- */
-uint8_t mcp2515_transmit(bsp_mcp2515_t* handle, mcp2515_can_msg_t* mcp2515_can_msg)
-{
-    ctrl_status_t status;
-    id_reg_t id_reg;
-
-    status.ctrl_status = mcp2515_read_status(handle);
-
-    /* Finding empty buffer */
-    if (status.TXB0REQ != 1)
-    {
-        /* convert CAN ID for register */
-        convert_id_to_reg(mcp2515_can_msg->id, mcp2515_can_msg->id_type, &id_reg);
-
-        /* Load data to Tx Buffer */
-        mcp2515_write_bytes(handle, MCP2515_TXB0SIDH, &id_reg.SIDH, 4);
-        mcp2515_write_byte(handle, MCP2515_TXB0DLC, mcp2515_can_msg->dlc & 0x0F); // default: RTR=0,Transmitted message will be a data frame
-        mcp2515_write_bytes(handle, MCP2515_TXB0D0, mcp2515_can_msg->data, 8);
-
-        /* Request to transmit */
-        mcp2515_request_to_send(handle, MCP2515_RTS_TX0);
-
-        // uint8_t ctrl = mcp2515_read_byte(handle, MCP2515_TXB0CTRL);
-        // if((ctrl & 0x70) != 0)
-        //     return 2;
-        // else
-            return 0;
-    }
-    else if (status.TXB1REQ != 1)
-    {
-        convert_id_to_reg(mcp2515_can_msg->id, mcp2515_can_msg->id_type, &id_reg);
-
-        mcp2515_write_bytes(handle, MCP2515_TXB1SIDH, &id_reg.SIDH, 4);
-        mcp2515_write_byte(handle, MCP2515_TXB1DLC, mcp2515_can_msg->dlc & 0x0F);
-        mcp2515_write_bytes(handle, MCP2515_TXB1D0, mcp2515_can_msg->data, 8);
-
-        mcp2515_request_to_send(handle, MCP2515_RTS_TX1);
-
-        // uint8_t ctrl = mcp2515_read_byte(handle, MCP2515_TXB1CTRL);
-        // if((ctrl & 0x70) != 0)
-        //     return 2;
-        // else
-            return 0;
-    }
-    else if (status.TXB2REQ != 1)
-    {
-        convert_id_to_reg(mcp2515_can_msg->id, mcp2515_can_msg->id_type, &id_reg);
-
-        mcp2515_write_bytes(handle, MCP2515_TXB2SIDH, &id_reg.SIDH, 4);
-        mcp2515_write_byte(handle, MCP2515_TXB2DLC, mcp2515_can_msg->dlc & 0x0F);
-        mcp2515_write_bytes(handle, MCP2515_TXB2D0, mcp2515_can_msg->data, 8);
-
-        mcp2515_request_to_send(handle, MCP2515_RTS_TX2);
-
-        // uint8_t ctrl = mcp2515_read_byte(handle, MCP2515_TXB2CTRL);
-        // if((ctrl & 0x70) != 0)
-        //     return 2;
-        // else
-            return 0;
-    }
-
-    return 1;
-}
-
 /* check BUS off */
 uint8_t mcp2515_is_bus_off(bsp_mcp2515_t* handle)
 {
@@ -783,6 +786,18 @@ uint8_t mcp2515_is_tx_error(bsp_mcp2515_t* handle)
     }
 
     return error;
+}
+
+/* Receive Error Count bits */
+uint8_t mcp2515_get_rx_error_count(bsp_mcp2515_t* handle)
+{
+    return mcp2515_read_byte(handle, MCP2515_REC);
+}
+
+/* Transmit Error Count bits */
+uint8_t mcp2515_get_tx_error_count(bsp_mcp2515_t* handle)
+{
+    return mcp2515_read_byte(handle, MCP2515_TEC);
 }
 
 /*

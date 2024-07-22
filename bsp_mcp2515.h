@@ -22,6 +22,8 @@ extern "C" {
 #define MCP2515_READ_STATUS     0xA0    // datasheet P67
 #define MCP2515_RX_STATUS       0xB0
 
+#define MCP2515_TEC             0x1C    // datasheet P49
+#define MCP2515_REC             0x1D
 #define MCP2515_EFLG            0x2D    // datasheet P50
 
 #define MCP2515_RXB0CTRL        0x60    // datasheet P27
@@ -249,6 +251,8 @@ struct bsp_mcp2515_tag
     uint8_t (*is_bus_off)(bsp_mcp2515_t* handle);
     uint8_t (*is_rx_error)(bsp_mcp2515_t* handle);
     uint8_t (*is_tx_error)(bsp_mcp2515_t* handle);
+    uint8_t (*get_rx_error_count)(bsp_mcp2515_t* handle);
+    uint8_t (*get_tx_error_count)(bsp_mcp2515_t* handle);
     uint8_t (*set_filter_mask)(bsp_mcp2515_t* handle, uint8_t mask, uint8_t ide, uint32_t data); // ide: macro definition STANDARD_FRAME/EXTENDED_FRAME
     uint8_t (*set_filter)(bsp_mcp2515_t* handle, uint8_t rxf, uint8_t ide, uint32_t data);
     uint8_t (*enter_sleep_mode)(bsp_mcp2515_t* handle); // datasheet P59
