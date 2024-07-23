@@ -127,8 +127,8 @@ static void mcp2515_write_bytes(bsp_mcp2515_t* handle, uint8_t start_address, ui
 }
 
 /**
- * @brief	只修改寄存器中的某些位
- * @param	address: 寄存器地址  
+ * @brief	  只修改寄存器中的某些位
+ * @param	  address: 寄存器地址  
  * @param   mask   : 屏蔽字, 1表示该位需要修改
  * @param   data   : 数据字节
  * @retval	None
@@ -561,7 +561,7 @@ uint8_t mcp2515_enter_sleep_mode(bsp_mcp2515_t* handle)
 }
 
 /**
- * @brief	Transmit CAN message
+ * @brief	  Transmit CAN message
  * @param	
  * @retval	0: transmit success; 1: all txbuf busy; 2: transmit failed
  */
@@ -631,7 +631,7 @@ uint8_t mcp2515_transmit(bsp_mcp2515_t* handle, mcp2515_can_msg_t* mcp2515_can_m
 /* You can choose one of two method to receive: interrupt-based and polling */
 
 /**
- * @brief	Received in polling mode
+ * @brief	  Received in polling mode
  * @param	
  * @retval	0: not received message; 1: received message
  */
@@ -684,14 +684,14 @@ uint8_t mcp2515_receive(bsp_mcp2515_t* handle, mcp2515_can_msg_t* mcp2515_can_ms
  *          void irqHandler() {interrupt_flag = true;}
  *          if (interrupt_flag) {
  *              interrupt_flag = false;
- *              if (mcp2515.mcp2515_receive_isr(&mcp2515, MCP2515_RXB0, &rx_can_msg)) {
+ *              if (mcp2515.receive_isr(&mcp2515, MCP2515_RXB0, &rx_can_msg)) {
                     // rx_can_msg contains received from RXB0 message
                 }
-                if (mcp2515.mcp2515_receive_isr(&mcp2515, MCP2515_RXB1, &rx_can_msg)) {
+                if (mcp2515.receive_isr(&mcp2515, MCP2515_RXB1, &rx_can_msg)) {
                     // rx_can_msg contains received from RXB1 message
                 }
             }
- * @param	rxbuf: only one parameter can be selected which is shown as below:
+ * @param	  rxbuf: only one parameter can be selected which is shown as below:
     \arg        MCP2515_RXB0
     \arg        MCP2515_RXB1
  * @retval	0: not received message; 1: received message
@@ -812,10 +812,10 @@ uint8_t mcp2515_get_tx_error_count(bsp_mcp2515_t* handle)
 /**
  * @brief	
  *  @note   MASK0-->RXB0; MASK1-->RXB1
- * @param	mask: only one parameter can be selected which is shown as below:
+ * @param	  mask: only one parameter can be selected which is shown as below:
     \arg        MCP2515_MASK0
     \arg        MCP2515_MASK1
- * @param	ext: only one parameter can be selected which is shown as below:
+ * @param	  ext : only one parameter can be selected which is shown as below:
     \arg        STANDARD_FRAME
     \arg        EXTENDED_FRAME
  * @param   data: bitx(0...28) 1: 该位进行比较; 0: 该位不进行比较(无论filter的位是0还是1都接收)
@@ -848,9 +848,9 @@ uint8_t set_filter_mask(bsp_mcp2515_t* handle, uint8_t mask, uint8_t ide, uint32
 /**
  * @brief	
  *  @note   RXF0,RXF1-->RXB0; RXF2,RXF3,RXF4,RXF5-->RXB1
- * @param	rxf: only one parameter can be selected which is shown as below:
+ * @param	  rxf: only one parameter can be selected which is shown as below:
     \arg        MCP2515_RXF0 to MCP2515_RXF5
- * @param	ext: only one parameter can be selected which is shown as below:
+ * @param	  ext: only one parameter can be selected which is shown as below:
     \arg        STANDARD_FRAME
     \arg        EXTENDED_FRAME
  * @retval	
